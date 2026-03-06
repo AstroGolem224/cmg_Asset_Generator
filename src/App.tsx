@@ -4,7 +4,9 @@ import { useGenerationStore, AIModel } from "./store/generationStore";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
-import { Loader2, Save, Terminal, Image as ImageIcon, Zap, Sparkles } from "lucide-react";
+import { Loader2, Save, Terminal, Image as ImageIcon, Zap, Sparkles, AlertTriangle } from "lucide-react";
+
+const isTauri = '__TAURI_INTERNALS__' in window;
 
 function App() {
   const {
@@ -19,6 +21,10 @@ function App() {
   } = useGenerationStore();
 
   const handleRefinePrompt = async () => {
+    if (!isTauri) {
+      setError("SYSTEM: NATIVE TAURI APIs ARE NOT AVAILABLE IN A REGULAR BROWSER. PLEASE USE THE TAURI APP WINDOW.");
+      return;
+    }
     if (!nvidiaApiKey) {
       setError("SYSTEM: NV_API KEY REQUIRED FOR PROMPT REFINEMENT");
       return;
@@ -41,6 +47,10 @@ function App() {
   };
 
   const handleGenerate = async () => {
+    if (!isTauri) {
+      setError("SYSTEM: NATIVE TAURI APIs ARE NOT AVAILABLE IN A REGULAR BROWSER. PLEASE USE THE TAURI APP WINDOW.");
+      return;
+    }
     if (aiModel === 'gemini' && !apiKey) {
       setError("SYSTEM: INVALID OR MISSING GEMINI API KEY");
       return;
@@ -74,6 +84,10 @@ function App() {
   };
 
   const handleSave = async () => {
+    if (!isTauri) {
+      setError("SYSTEM: NATIVE TAURI APIs ARE NOT AVAILABLE IN A REGULAR BROWSER. PLEASE USE THE TAURI APP WINDOW.");
+      return;
+    }
     if (!generatedAssetBase64) return;
 
     try {
@@ -105,8 +119,16 @@ function App() {
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[100px] pointer-events-none" />
 
+      {/* Warning if running in browser */}
+      {!isTauri && (
+        <div className="absolute top-0 left-0 w-full bg-destructive text-destructive-foreground font-display text-xs font-bold tracking-widest uppercase py-3 px-4 text-center flex items-center justify-center gap-2 z-50">
+          <AlertTriangle className="h-4 w-4" />
+          SYSTEM WARNING: NATIVE TAURI INTERFACE NOT DETECTED. PLEASE CLOSE YOUR BROWSER AND USE THE TAURI APP WINDOW.
+        </div>
+      )}
+
       {/* Header */}
-      <header className="w-full max-w-6xl mb-12 flex items-center justify-between border-b-2 border-primary/20 pb-4 relative z-10">
+      <header className="w-full max-w-6xl mb-12 flex items-center justify-between border-b-2 border-primary/20 pb-4 relative z-10 mt-8">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary flex items-center justify-center transform -skew-x-12 shadow-[0_0_15px_rgba(234,179,8,0.3)]">
             <Terminal className="text-primary-foreground h-6 w-6 transform skew-x-12" />
