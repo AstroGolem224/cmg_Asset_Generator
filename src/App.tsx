@@ -1,10 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import { useGenerationStore, AIModel } from "./store/generationStore";
+import { useGenerationStore } from "./store/generationStore";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
-import { Loader2, Save, Terminal, Image as ImageIcon, Zap, Sparkles, AlertTriangle } from "lucide-react";
+import { Loader2, Save, Terminal, Image as ImageIcon, Zap, Sparkles } from "lucide-react";
 
 const isTauri = '__TAURI_INTERNALS__' in window;
 
@@ -21,10 +21,6 @@ function App() {
   } = useGenerationStore();
 
   const handleRefinePrompt = async () => {
-    if (!isTauri) {
-      setError("SYSTEM: NATIVE TAURI APIs ARE NOT AVAILABLE IN A REGULAR BROWSER. PLEASE USE THE TAURI APP WINDOW.");
-      return;
-    }
     if (!nvidiaApiKey) {
       setError("SYSTEM: NV_API KEY REQUIRED FOR PROMPT REFINEMENT");
       return;
@@ -37,20 +33,37 @@ function App() {
     setIsRefining(true);
     setError(null);
     try {
-      const refinedPrompt: string = await invoke("refine_prompt", { prompt, apiKey: nvidiaApiKey });
-      setPrompt(refinedPrompt);
+      if (isTauri) {
+        const refinedPrompt: string = await invoke("refine_prompt", { prompt, apiKey: nvidiaApiKey });
+        setPrompt(refinedPrompt);
+      } else {
+        const url = "https://integrate.api.nvidia.com/v1/chat/completions";
+        const requestBody = {
+          model: "mistralai/mistral-7b-instruct-v0.3",
+          messages: [
+            { role: "system", content: "You are an expert prompt engineer for AI image generation. Enhance the user's short idea into a highly detailed, descriptive image prompt in English. Keep it under 50 words." },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.2, top_p: 0.7, max_tokens: 1024, stream: false
+        };
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${nvidiaApiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody)
+        });
+        if (!res.ok) throw new Error(`Mistral API request failed: ${res.status}`);
+        const data = await res.json();
+        const refinedPrompt = data.choices?.[0]?.message?.content || "";
+        setPrompt(refinedPrompt);
+      }
     } catch (err: any) {
-      setError(`CRITICAL ERROR (MISTRAL): ${err}`);
+      setError(`CRITICAL ERROR (MISTRAL): ${err.message || err}`);
     } finally {
       setIsRefining(false);
     }
   };
 
   const handleGenerate = async () => {
-    if (!isTauri) {
-      setError("SYSTEM: NATIVE TAURI APIs ARE NOT AVAILABLE IN A REGULAR BROWSER. PLEASE USE THE TAURI APP WINDOW.");
-      return;
-    }
     if (aiModel === 'gemini' && !apiKey) {
       setError("SYSTEM: INVALID OR MISSING GEMINI API KEY");
       return;
@@ -69,40 +82,71 @@ function App() {
     setGeneratedAsset(null);
 
     try {
-      let base64Data: string;
-      if (aiModel === 'gemini') {
-        base64Data = await invoke("generate_asset", { prompt, apiKey });
+      let base64Data: string = "";
+      if (isTauri) {
+        if (aiModel === 'gemini') {
+          base64Data = await invoke("generate_asset", { prompt, apiKey });
+        } else {
+          base64Data = await invoke("generate_asset_sd", { prompt, apiKey: nvidiaApiKey });
+        }
       } else {
-        base64Data = await invoke("generate_asset_sd", { prompt, apiKey: nvidiaApiKey });
+        if (aiModel === 'gemini') {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+          const requestBody = {
+            contents: [{ role: "user", parts: [{ text: `Generate a high quality pro-level video game asset based on this description. Output only a base64 encoded image string if possible, or describe it detailed: ${prompt}` }] }],
+            generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, candidateCount: 1 }
+          };
+          const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(requestBody) });
+          if (!res.ok) throw new Error(`Gemini API failed: ${res.status}`);
+          const data = await res.json();
+          base64Data = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        } else {
+          const url = "https://ai.api.nvidia.com/v1/genai/stabilityai/stable-diffusion-3.5-large";
+          const requestBody = { prompt, cfg_scale: 5, aspect_ratio: "1:1", seed: 0, steps: 40, negative_prompt: "" };
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${nvidiaApiKey}`, "Accept": "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody)
+          });
+          if (!res.ok) throw new Error(`SD3.5 API failed: ${res.status}`);
+          const data = await res.json();
+          base64Data = data.image || data.data?.[0]?.b64_json || "";
+        }
       }
       setGeneratedAsset(base64Data);
     } catch (err: any) {
-      setError(`CRITICAL ERROR: ${err}`);
+      setError(`CRITICAL ERROR: ${err.message || err}`);
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleSave = async () => {
-    if (!isTauri) {
-      setError("SYSTEM: NATIVE TAURI APIs ARE NOT AVAILABLE IN A REGULAR BROWSER. PLEASE USE THE TAURI APP WINDOW.");
-      return;
-    }
     if (!generatedAssetBase64) return;
 
     try {
-      const filePath = await save({
-        filters: [{
-          name: 'Image',
-          extensions: ['png', 'jpg']
-        }]
-      });
+      if (isTauri) {
+        const filePath = await save({
+          filters: [{
+            name: 'Image',
+            extensions: ['png', 'jpg']
+          }]
+        });
 
-      if (filePath) {
-        await invoke("save_asset", { base64Data: generatedAssetBase64, path: filePath });
+        if (filePath) {
+          await invoke("save_asset", { base64Data: generatedAssetBase64, path: filePath });
+        }
+      } else {
+        const link = document.createElement("a");
+        const dataUri = generatedAssetBase64.startsWith("data:") ? generatedAssetBase64 : `data:image/png;base64,${generatedAssetBase64}`;
+        link.href = dataUri;
+        link.download = `nanobanana-asset-${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
     } catch (err: any) {
-      setError(`SYS_ERROR: FILESYSTEM WRITE FAILED - ${err}`);
+      setError(`SYS_ERROR: FILESYSTEM WRITE FAILED - ${err.message || err}`);
     }
   };
 
@@ -121,9 +165,9 @@ function App() {
 
       {/* Warning if running in browser */}
       {!isTauri && (
-        <div className="absolute top-0 left-0 w-full bg-destructive text-destructive-foreground font-display text-xs font-bold tracking-widest uppercase py-3 px-4 text-center flex items-center justify-center gap-2 z-50">
-          <AlertTriangle className="h-4 w-4" />
-          SYSTEM WARNING: NATIVE TAURI INTERFACE NOT DETECTED. PLEASE CLOSE YOUR BROWSER AND USE THE TAURI APP WINDOW.
+        <div className="absolute top-0 left-0 w-full bg-secondary/80 text-secondary-foreground font-display text-xs font-bold tracking-widest uppercase py-3 px-4 text-center flex items-center justify-center gap-2 z-50 border-b border-primary/20 backdrop-blur-sm">
+          <Terminal className="h-4 w-4 text-primary" />
+          SYSTEM INFO: RUNNING IN WEB BROWSER FALLBACK MODE. NATIVE LOCAL FILE SYSTEM DISABLED.
         </div>
       )}
 
