@@ -38,7 +38,10 @@ function App() {
         const refinedPrompt: string = await invoke("refine_prompt", { prompt, apiKey: nvidiaApiKey });
         setPrompt(refinedPrompt);
       } else {
-        const url = "/api/nvidia-chat/v1/chat/completions";
+        const nvidiaRefineUrl = import.meta.env.DEV
+          ? "/api/nvidia-chat/v1/chat/completions"
+          : "https://integrate.api.nvidia.com/v1/chat/completions";
+
         const requestBody = {
           model: "mistralai/mistral-7b-instruct-v0.3",
           messages: [
@@ -47,7 +50,7 @@ function App() {
           ],
           temperature: 0.2, top_p: 0.7, max_tokens: 1024, stream: false
         };
-        const res = await fetch(url, {
+        const res = await fetch(nvidiaRefineUrl, {
           method: "POST",
           headers: { "Authorization": `Bearer ${nvidiaApiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify(requestBody)
@@ -92,17 +95,23 @@ function App() {
         }
       } else {
         if (aiModel === 'gemini') {
-          const url = `/api/gemini/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+          const geminiUrl = import.meta.env.DEV
+            ? `/api/gemini/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`
+            : `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
           const requestBody = {
             contents: [{ role: "user", parts: [{ text: `Generate a high quality pro-level video game asset based on this description. Output only a base64 encoded image string if possible, or describe it detailed: ${prompt}` }] }],
             generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, candidateCount: 1 }
           };
-          const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(requestBody) });
+          const res = await fetch(geminiUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(requestBody) });
           if (!res.ok) throw new Error(`Gemini API failed: ${res.status}`);
           const data = await res.json();
           base64Data = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         } else {
-          const url = "/api/nvidia-sd/v1/genai/stabilityai/stable-diffusion-3-medium";
+          const sdUrl = import.meta.env.DEV
+            ? "/api/nvidia-sd/v1/genai/stabilityai/stable-diffusion-3-medium"
+            : "https://ai.api.nvidia.com/v1/genai/stabilityai/stable-diffusion-3-medium";
+
           const requestBody = {
             prompt,
             cfg_scale: 5,
@@ -111,13 +120,13 @@ function App() {
             steps: 40,
             negative_prompt: ""
           };
-          const res = await fetch(url, {
+          const sdRes = await fetch(sdUrl, {
             method: "POST",
             headers: { "Authorization": `Bearer ${nvidiaApiKey}`, "Accept": "application/json", "Content-Type": "application/json" },
             body: JSON.stringify(requestBody)
           });
-          if (!res.ok) throw new Error(`SD3.5 API failed: ${res.status}`);
-          const data = await res.json();
+          if (!sdRes.ok) throw new Error(`SD3.5 API failed: ${sdRes.status}`);
+          const data = await sdRes.json();
           base64Data = data.image || data.data?.[0]?.b64_json || "";
         }
       }
