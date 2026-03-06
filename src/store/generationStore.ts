@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type AIModel = 'gemini' | 'sd35';
 
@@ -22,22 +23,35 @@ export interface GenerationState {
     setAiModel: (model: AIModel) => void;
 }
 
-export const useGenerationStore = create<GenerationState>((set) => ({
-    isGenerating: false,
-    isRefining: false,
-    prompt: '',
-    generatedAssetBase64: null,
-    error: null,
-    apiKey: '',
-    nvidiaApiKey: '',
-    aiModel: 'gemini',
+export const useGenerationStore = create<GenerationState>()(
+    persist(
+        (set) => ({
+            isGenerating: false,
+            isRefining: false,
+            prompt: '',
+            generatedAssetBase64: null,
+            error: null,
+            apiKey: '',
+            nvidiaApiKey: '',
+            aiModel: 'gemini',
 
-    setApiKey: (apiKey) => set({ apiKey }),
-    setNvidiaApiKey: (nvidiaApiKey) => set({ nvidiaApiKey }),
-    setPrompt: (prompt) => set({ prompt }),
-    setIsGenerating: (isGenerating) => set({ isGenerating }),
-    setIsRefining: (isRefining) => set({ isRefining }),
-    setGeneratedAsset: (generatedAssetBase64) => set({ generatedAssetBase64 }),
-    setError: (error) => set({ error }),
-    setAiModel: (aiModel) => set({ aiModel }),
-}));
+            setApiKey: (apiKey) => set({ apiKey }),
+            setNvidiaApiKey: (nvidiaApiKey) => set({ nvidiaApiKey }),
+            setPrompt: (prompt) => set({ prompt }),
+            setIsGenerating: (isGenerating) => set({ isGenerating }),
+            setIsRefining: (isRefining) => set({ isRefining }),
+            setGeneratedAsset: (generatedAssetBase64) => set({ generatedAssetBase64 }),
+            setError: (error) => set({ error }),
+            setAiModel: (aiModel) => set({ aiModel }),
+        }),
+        {
+            name: 'nanobanana-storage', // name of the item in the storage (must be unique)
+            storage: createJSONStorage(() => localStorage), // (optional) by default, 'localStorage' is used
+            partialize: (state) => ({
+                apiKey: state.apiKey,
+                nvidiaApiKey: state.nvidiaApiKey,
+                aiModel: state.aiModel
+            }), // only save these fields
+        }
+    )
+);
