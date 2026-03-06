@@ -1,11 +1,10 @@
-
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useGenerationStore } from "./store/generationStore";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./components/ui/card";
-import { Loader2, Save } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
+import { Loader2, Save, Terminal, Image as ImageIcon, Zap } from "lucide-react";
 
 function App() {
   const {
@@ -18,11 +17,11 @@ function App() {
 
   const handleGenerate = async () => {
     if (!apiKey) {
-      setError("Please provide a Gemini API Key.");
+      setError("SYSTEM: INVALID OR MISSING API KEY");
       return;
     }
     if (!prompt) {
-      setError("Please enter a prompt.");
+      setError("SYSTEM: NO PROMPT DETECTED IN QUEUE");
       return;
     }
 
@@ -34,7 +33,7 @@ function App() {
       const base64Data: string = await invoke("generate_asset", { prompt, apiKey });
       setGeneratedAsset(base64Data);
     } catch (err: any) {
-      setError(err.toString());
+      setError(`CRITICAL ERROR: ${err}`);
     } finally {
       setIsGenerating(false);
     }
@@ -53,10 +52,9 @@ function App() {
 
       if (filePath) {
         await invoke("save_asset", { base64Data: generatedAssetBase64, path: filePath });
-        // Optional alert or toast on success here
       }
     } catch (err: any) {
-      setError(`Fehler beim Speichern: ${err}`);
+      setError(`SYS_ERROR: FILESYSTEM WRITE FAILED - ${err}`);
     }
   };
 
@@ -67,114 +65,151 @@ function App() {
     : null;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 p-6 flex flex-col items-center font-sans">
-      <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-orange-500 mb-8 mt-4 tracking-tight drop-shadow-md">
-        Nano Banana Asset Generator
-      </h1>
+    <div className="min-h-screen bg-background text-foreground p-8 flex flex-col items-center relative overflow-hidden selection:bg-primary/30 font-sans">
 
-      <div className="w-full max-w-5xl grid md:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <Card className="bg-slate-900/50 backdrop-blur-md border-slate-800 shadow-xl text-slate-100">
-            <CardHeader>
-              <CardTitle className="text-lg">Configuration</CardTitle>
-              <CardDescription className="text-slate-400">Settings & API Key for Gemini 3.1 Flash</CardDescription>
+      {/* Background Decorators */}
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[100px] pointer-events-none" />
+
+      {/* Header */}
+      <header className="w-full max-w-6xl mb-12 flex items-center justify-between border-b-2 border-primary/20 pb-4 relative z-10">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-primary flex items-center justify-center transform -skew-x-12 shadow-[0_0_15px_rgba(234,179,8,0.3)]">
+            <Terminal className="text-primary-foreground h-6 w-6 transform skew-x-12" />
+          </div>
+          <div>
+            <h1 className="font-display font-bold text-3xl uppercase tracking-[0.15em] text-primary">
+              Nano Banana
+            </h1>
+            <p className="font-display text-sm uppercase tracking-[0.3em] text-muted-foreground mt-1">
+              Asset Generator Module v0.1
+            </p>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Grid */}
+      <div className="w-full max-w-6xl grid lg:grid-cols-12 gap-8 relative z-10">
+
+        {/* Left Column (Controls) */}
+        <div className="lg:col-span-5 flex flex-col gap-8">
+
+          <Card className="bg-card border-l-4 border-l-primary shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-2 opacity-10">
+              <Zap className="w-24 h-24" />
+            </div>
+            <CardHeader className="pb-4">
+              <CardTitle className="font-display uppercase tracking-[0.1em] text-primary flex items-center gap-2">
+                <span className="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+                System Config
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-300">Google Gemini API Key</label>
-                  <Input
-                    type="password"
-                    placeholder="AIzaSy..."
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    className="mt-1.5 bg-slate-800/80 border-slate-700 text-white placeholder:text-slate-500 focus-visible:ring-orange-500"
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-xs font-display uppercase tracking-wider text-muted-foreground">Gemini 3.1 Flash API Key</label>
+                <Input
+                  type="password"
+                  placeholder="AIzaSy..."
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="font-mono bg-background focus-[&_input]:ring-primary/50 !border-muted rounded-none"
+                />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900/50 backdrop-blur-md border-slate-800 shadow-xl text-slate-100">
-            <CardHeader>
-              <CardTitle className="text-lg">Generate Asset</CardTitle>
+          <Card className="bg-card shadow-2xl flex-1 flex flex-col border border-border/50">
+            <CardHeader className="pb-4 bg-secondary/30 border-b border-border/50">
+              <CardTitle className="font-display uppercase tracking-[0.1em] text-white">
+                Synthesis Queue
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-300">Asset Prompt</label>
-                  <Input
-                    placeholder="A glowing health potion in isometric pixel art style..."
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    className="mt-1.5 bg-slate-800/80 border-slate-700 text-white placeholder:text-slate-500 focus-visible:ring-orange-500"
-                  />
-                </div>
-                {error && (
-                  <div className="p-3 bg-red-950/40 border border-red-800/50 text-red-300 rounded-md text-sm backdrop-blur-sm">
-                    {error}
-                  </div>
-                )}
+            <CardContent className="flex-1 flex flex-col justify-between pt-6 space-y-6">
+
+              <div className="space-y-2">
+                <label className="text-xs font-display uppercase tracking-wider text-muted-foreground">Asset Specifications</label>
+                <textarea
+                  placeholder="Describe the asset. e.g. An isometric clay golem figurine, highly detailed, dramatic studio lighting..."
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="w-full h-32 p-3 font-mono text-sm bg-background border border-muted focus:outline-none focus:ring-1 focus:ring-primary rounded-sm resize-none custom-scrollbar"
+                />
               </div>
-            </CardContent>
-            <CardFooter>
+
+              {error && (
+                <div className="px-4 py-3 bg-destructive/10 border border-destructive/30 text-destructive text-xs font-mono uppercase tracking-wide flex items-start gap-2">
+                  <span className="mt-0.5">!</span>
+                  <span>{error}</span>
+                </div>
+              )}
+
               <Button
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="w-full bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 text-slate-950 font-bold shadow-lg shadow-orange-900/20 transition-all active:scale-[0.98]"
+                className="w-full h-14 font-display font-bold uppercase tracking-[0.15em] bg-primary hover:bg-primary/90 text-primary-foreground rounded-none relative group overflow-hidden transition-all duration-300"
               >
+                {/* Button Hover Effect */}
+                <div className="absolute inset-0 bg-white/20 transform -translate-x-full skew-x-12 group-hover:translate-x-full transition-transform duration-700 ease-out" />
+
                 {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating in Nano-Time...
-                  </>
+                  <span className="flex items-center gap-3">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Synthesizing...
+                  </span>
                 ) : (
-                  "Generate Asset"
+                  "Initiate Synthesis"
                 )}
               </Button>
-            </CardFooter>
+            </CardContent>
           </Card>
         </div>
 
-        <Card className="bg-slate-900/50 backdrop-blur-md border-slate-800 shadow-xl text-slate-100 flex flex-col h-[500px]">
-          <CardHeader>
-            <CardTitle className="text-lg">Preview</CardTitle>
-          </CardHeader>
-          <CardContent className="flex-grow flex items-center justify-center p-6 relative overflow-hidden bg-slate-950/30 rounded-md mx-6 mb-6 mt-2 border border-slate-800/50">
-            {isGenerating ? (
-              <div className="flex flex-col items-center justify-center text-slate-400 animate-pulse">
-                <Loader2 className="h-10 w-10 animate-spin mb-4 text-orange-400" />
-                <p className="text-sm font-medium tracking-wide">Synthesizing pixels...</p>
-              </div>
-            ) : formattedImageSrc ? (
-              <img
-                src={formattedImageSrc}
-                alt="Generated Asset"
-                className="max-w-full max-h-full object-contain drop-shadow-[0_0_15px_rgba(249,115,22,0.15)] rounded-sm"
-              />
-            ) : (
-              <div className="text-slate-600 text-center flex flex-col items-center">
-                <div className="w-16 h-16 mb-4 rounded-xl border border-dashed border-slate-700 flex items-center justify-center bg-slate-900/50">
-                  <span className="text-slate-700 text-xs font-mono">IMG</span>
+        {/* Right Column (Preview) */}
+        <div className="lg:col-span-7 flex flex-col min-h-[500px]">
+          <Card className="bg-card w-full h-full flex flex-col border border-border/50 shadow-2xl">
+            <CardHeader className="flex flex-row items-center justify-between pb-4 bg-secondary/30 border-b border-border/50">
+              <CardTitle className="font-display uppercase tracking-[0.1em] text-white">
+                Visual Output
+              </CardTitle>
+              {formattedImageSrc && (
+                <Button
+                  onClick={handleSave}
+                  variant="outline"
+                  size="sm"
+                  className="font-display text-xs uppercase tracking-wider border-primary/30 text-primary hover:bg-primary/10 hover:text-primary h-8"
+                >
+                  <Save className="h-3 w-3 mr-2" />
+                  Save to Disk
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="flex-1 flex items-center justify-center p-0 relative bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')]">
+
+              {isGenerating ? (
+                <div className="flex flex-col items-center gap-4 text-primary">
+                  <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                  <p className="font-display uppercase tracking-widest text-sm animate-pulse">Processing Data...</p>
                 </div>
-                <p className="text-sm font-medium text-slate-400">No asset generated yet.</p>
-                <p className="text-xs mt-1">Enter a prompt and hit generate to see magic.</p>
-              </div>
-            )}
-          </CardContent>
-          {formattedImageSrc && (
-            <CardFooter className="pt-0 pb-6 px-6">
-              <Button
-                onClick={handleSave}
-                variant="secondary"
-                className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 shadow-md transition-colors"
-              >
-                <Save className="h-4 w-4 mr-2 text-slate-400" />
-                Save Asset to Disk
-              </Button>
-            </CardFooter>
-          )}
-        </Card>
+              ) : formattedImageSrc ? (
+                <div className="p-8 w-full h-full flex items-center justify-center">
+                  <img
+                    src={formattedImageSrc}
+                    alt="Generated Asset"
+                    className="max-w-full max-h-full object-contain filter drop-shadow-[0_0_20px_rgba(234,179,8,0.15)] border border-primary/20 pointer-events-none"
+                  />
+                </div>
+              ) : (
+                <div className="text-center flex flex-col items-center opacity-50">
+                  <ImageIcon className="h-16 w-16 mb-4 text-muted-foreground" />
+                  <p className="font-display uppercase tracking-widest text-muted-foreground text-sm">System Idle</p>
+                  <p className="font-mono text-xs text-muted-foreground mt-2">Awaiting synthesis parameters.</p>
+                </div>
+              )}
+
+            </CardContent>
+          </Card>
+        </div>
+
       </div>
     </div>
   );
