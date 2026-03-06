@@ -101,9 +101,8 @@ function App() {
           const data = await res.json();
           base64Data = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         } else {
-          const url = "/api/nvidia-sd/v1/images/generations";
+          const url = "/api/nvidia-sd/v1/genai/stabilityai/stable-diffusion-3-medium";
           const requestBody = {
-            model: "stabilityai/stable-diffusion-3.5-large",
             prompt,
             cfg_scale: 5,
             aspect_ratio: "1:1",
