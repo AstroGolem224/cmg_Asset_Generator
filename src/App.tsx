@@ -1,23 +1,52 @@
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import { useGenerationStore } from "./store/generationStore";
+import { useGenerationStore, AIModel } from "./store/generationStore";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
-import { Loader2, Save, Terminal, Image as ImageIcon, Zap } from "lucide-react";
+import { Loader2, Save, Terminal, Image as ImageIcon, Zap, Sparkles } from "lucide-react";
 
 function App() {
   const {
     apiKey, setApiKey,
+    nvidiaApiKey, setNvidiaApiKey,
+    aiModel, setAiModel,
     prompt, setPrompt,
     isGenerating, setIsGenerating,
+    isRefining, setIsRefining,
     generatedAssetBase64, setGeneratedAsset,
     error, setError
   } = useGenerationStore();
 
+  const handleRefinePrompt = async () => {
+    if (!nvidiaApiKey) {
+      setError("SYSTEM: NV_API KEY REQUIRED FOR PROMPT REFINEMENT");
+      return;
+    }
+    if (!prompt) {
+      setError("SYSTEM: NO PROMPT DETECTED IN QUEUE");
+      return;
+    }
+
+    setIsRefining(true);
+    setError(null);
+    try {
+      const refinedPrompt: string = await invoke("refine_prompt", { prompt, apiKey: nvidiaApiKey });
+      setPrompt(refinedPrompt);
+    } catch (err: any) {
+      setError(`CRITICAL ERROR (MISTRAL): ${err}`);
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
   const handleGenerate = async () => {
-    if (!apiKey) {
-      setError("SYSTEM: INVALID OR MISSING API KEY");
+    if (aiModel === 'gemini' && !apiKey) {
+      setError("SYSTEM: INVALID OR MISSING GEMINI API KEY");
+      return;
+    }
+    if (aiModel === 'sd35' && !nvidiaApiKey) {
+      setError("SYSTEM: INVALID OR MISSING NVIDIA API KEY");
       return;
     }
     if (!prompt) {
@@ -30,7 +59,12 @@ function App() {
     setGeneratedAsset(null);
 
     try {
-      const base64Data: string = await invoke("generate_asset", { prompt, apiKey });
+      let base64Data: string;
+      if (aiModel === 'gemini') {
+        base64Data = await invoke("generate_asset", { prompt, apiKey });
+      } else {
+        base64Data = await invoke("generate_asset_sd", { prompt, apiKey: nvidiaApiKey });
+      }
       setGeneratedAsset(base64Data);
     } catch (err: any) {
       setError(`CRITICAL ERROR: ${err}`);
@@ -82,7 +116,7 @@ function App() {
               Nano Banana
             </h1>
             <p className="font-display text-sm uppercase tracking-[0.3em] text-muted-foreground mt-1">
-              Asset Generator Module v0.1
+              Asset Generator Module v0.2
             </p>
           </div>
         </div>
@@ -104,16 +138,53 @@ function App() {
                 System Config
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-xs font-display uppercase tracking-wider text-muted-foreground">Gemini 3.1 Flash API Key</label>
+                <label className="text-xs font-display uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${aiModel === 'gemini' ? 'bg-primary' : 'bg-muted'}`}></div>
+                  Gemini API Key
+                </label>
                 <Input
                   type="password"
                   placeholder="AIzaSy..."
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  className="font-mono bg-background focus-[&_input]:ring-primary/50 !border-muted rounded-none"
+                  className={`font-mono bg-background focus-[&_input]:ring-primary/50 !border-muted rounded-none ${aiModel === 'gemini' ? 'opacity-100' : 'opacity-50'}`}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-display uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${aiModel === 'sd35' ? 'bg-primary' : 'bg-muted'}`}></div>
+                  NVIDIA API Key (Mistral & SD3.5)
+                </label>
+                <Input
+                  type="password"
+                  placeholder="nvapi-..."
+                  value={nvidiaApiKey}
+                  onChange={(e) => setNvidiaApiKey(e.target.value)}
+                  className={`font-mono bg-background focus-[&_input]:ring-primary/50 !border-muted rounded-none ${aiModel === 'sd35' ? 'opacity-100' : 'opacity-50'}`}
+                />
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <label className="text-xs font-display uppercase tracking-wider text-muted-foreground">Synthesizer Core</label>
+                <div className="flex gap-2">
+                  <Button
+                    variant={aiModel === 'gemini' ? "default" : "outline"}
+                    className={`flex-1 font-display text-xs uppercase tracking-widest rounded-none ${aiModel === 'gemini' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground border-muted'}`}
+                    onClick={() => setAiModel('gemini')}
+                  >
+                    Nano Banana
+                  </Button>
+                  <Button
+                    variant={aiModel === 'sd35' ? "default" : "outline"}
+                    className={`flex-1 font-display text-xs uppercase tracking-widest rounded-none ${aiModel === 'sd35' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground border-muted'}`}
+                    onClick={() => setAiModel('sd35')}
+                  >
+                    SD 3.5 Large
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -126,8 +197,21 @@ function App() {
             </CardHeader>
             <CardContent className="flex-1 flex flex-col justify-between pt-6 space-y-6">
 
-              <div className="space-y-2">
-                <label className="text-xs font-display uppercase tracking-wider text-muted-foreground">Asset Specifications</label>
+              <div className="space-y-2 relative">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-display uppercase tracking-wider text-muted-foreground">Asset Specifications</label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRefinePrompt}
+                    disabled={isRefining || !prompt}
+                    className="h-6 text-[10px] font-display uppercase tracking-widest text-primary hover:text-primary hover:bg-primary/10 px-2"
+                  >
+                    {isRefining ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                    AI Refiner (Mistral)
+                  </Button>
+                </div>
+
                 <textarea
                   placeholder="Describe the asset. e.g. An isometric clay golem figurine, highly detailed, dramatic studio lighting..."
                   value={prompt}
@@ -145,10 +229,9 @@ function App() {
 
               <Button
                 onClick={handleGenerate}
-                disabled={isGenerating}
+                disabled={isGenerating || isRefining}
                 className="w-full h-14 font-display font-bold uppercase tracking-[0.15em] bg-primary hover:bg-primary/90 text-primary-foreground rounded-none relative group overflow-hidden transition-all duration-300"
               >
-                {/* Button Hover Effect */}
                 <div className="absolute inset-0 bg-white/20 transform -translate-x-full skew-x-12 group-hover:translate-x-full transition-transform duration-700 ease-out" />
 
                 {isGenerating ? (
