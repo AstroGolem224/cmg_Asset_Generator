@@ -37,7 +37,7 @@ function App() {
         const refinedPrompt: string = await invoke("refine_prompt", { prompt, apiKey: nvidiaApiKey });
         setPrompt(refinedPrompt);
       } else {
-        const url = "https://integrate.api.nvidia.com/v1/chat/completions";
+        const url = "/api/nvidia-chat/v1/chat/completions";
         const requestBody = {
           model: "mistralai/mistral-7b-instruct-v0.3",
           messages: [
@@ -91,7 +91,7 @@ function App() {
         }
       } else {
         if (aiModel === 'gemini') {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+          const url = `/api/gemini/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
           const requestBody = {
             contents: [{ role: "user", parts: [{ text: `Generate a high quality pro-level video game asset based on this description. Output only a base64 encoded image string if possible, or describe it detailed: ${prompt}` }] }],
             generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, candidateCount: 1 }
@@ -101,7 +101,7 @@ function App() {
           const data = await res.json();
           base64Data = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         } else {
-          const url = "https://ai.api.nvidia.com/v1/genai/stabilityai/stable-diffusion-3.5-large";
+          const url = "/api/nvidia-sd/v1/genai/stabilityai/stable-diffusion-3.5-large";
           const requestBody = { prompt, cfg_scale: 5, aspect_ratio: "1:1", seed: 0, steps: 40, negative_prompt: "" };
           const res = await fetch(url, {
             method: "POST",
