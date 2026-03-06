@@ -1,24 +1,20 @@
 const key = "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";
 
-const tests = [
-    {
-        url: "https://ai.api.nvidia.com/v1/genai/stabilityai/stable-diffusion-3-medium",
-        body: { prompt: "a tiny cat", cfg_scale: 5, aspect_ratio: "1:1", seed: 0, steps: 40, negative_prompt: "" }
-    }
-];
+const ratios = ["16:9", "21:9", "32:9", "9:16", "1:1"];
 
 async function run() {
-    for (const t of tests) {
+    for (const ratio of ratios) {
         try {
-            console.log(`Testing ${t.url}...`);
-            const res = await fetch(t.url, {
+            console.log(`Testing aspect ratio: ${ratio}...`);
+            const res = await fetch("https://ai.api.nvidia.com/v1/genai/stabilityai/stable-diffusion-3-medium", {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${key}`, "Accept": "application/json", "Content-Type": "application/json" },
-                body: JSON.stringify(t.body)
+                body: JSON.stringify({ prompt: "a tiny cat", aspect_ratio: ratio })
             });
-            console.log(`Status: ${res.status}`);
-            if (res.ok) {
-                console.log("SUCCESS!");
+            console.log(`Status for ${ratio}: ${res.status}`);
+            if (!res.ok) {
+                const text = await res.text();
+                console.log(`Error: ${text}`);
             }
         } catch (e) { console.error(e); }
     }

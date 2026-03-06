@@ -12,6 +12,7 @@ export interface GenerationState {
     apiKey: string; // Gemini
     nvidiaApiKey: string; // Nvidia
     aiModel: AIModel;
+    aspectRatio: string;
 
     setApiKey: (key: string) => void;
     setNvidiaApiKey: (key: string) => void;
@@ -21,6 +22,7 @@ export interface GenerationState {
     setGeneratedAsset: (base64: string | null) => void;
     setError: (error: string | null) => void;
     setAiModel: (model: AIModel) => void;
+    setAspectRatio: (ratio: string) => void;
 }
 
 export const useGenerationStore = create<GenerationState>()(
@@ -34,6 +36,7 @@ export const useGenerationStore = create<GenerationState>()(
             apiKey: '',
             nvidiaApiKey: '',
             aiModel: 'gemini',
+            aspectRatio: '1:1',
 
             setApiKey: (apiKey) => set({ apiKey }),
             setNvidiaApiKey: (nvidiaApiKey) => set({ nvidiaApiKey }),
@@ -43,6 +46,7 @@ export const useGenerationStore = create<GenerationState>()(
             setGeneratedAsset: (generatedAssetBase64) => set({ generatedAssetBase64 }),
             setError: (error) => set({ error }),
             setAiModel: (aiModel) => set({ aiModel }),
+            setAspectRatio: (aspectRatio) => set({ aspectRatio }),
         }),
         {
             name: 'nanobanana-storage', // name of the item in the storage (must be unique)
@@ -50,7 +54,8 @@ export const useGenerationStore = create<GenerationState>()(
             partialize: (state) => ({
                 apiKey: state.apiKey,
                 nvidiaApiKey: state.nvidiaApiKey,
-                aiModel: state.aiModel
+                aiModel: state.aiModel,
+                aspectRatio: state.aspectRatio
             }), // only save these fields
         }
     )

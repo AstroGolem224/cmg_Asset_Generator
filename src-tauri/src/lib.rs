@@ -192,14 +192,14 @@ async fn refine_prompt(prompt: String, api_key: String) -> Result<String, String
 }
 
 #[tauri::command]
-async fn generate_asset_sd(prompt: String, api_key: String) -> Result<String, String> {
+async fn generate_asset_sd(prompt: String, api_key: String, aspect_ratio: String) -> Result<String, String> {
     let client = reqwest::Client::new();
     let url = "https://ai.api.nvidia.com/v1/genai/stabilityai/stable-diffusion-3-medium";
 
     let request_body = serde_json::json!({
         "prompt": prompt,
         "cfg_scale": 5,
-        "aspect_ratio": "1:1",
+        "aspect_ratio": aspect_ratio,
         "seed": 0,
         "steps": 40,
         "negative_prompt": ""

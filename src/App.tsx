@@ -17,7 +17,8 @@ function App() {
     isGenerating, setIsGenerating,
     isRefining, setIsRefining,
     generatedAssetBase64, setGeneratedAsset,
-    error, setError
+    error, setError,
+    aspectRatio, setAspectRatio
   } = useGenerationStore();
 
   const handleRefinePrompt = async () => {
@@ -87,7 +88,7 @@ function App() {
         if (aiModel === 'gemini') {
           base64Data = await invoke("generate_asset", { prompt, apiKey });
         } else {
-          base64Data = await invoke("generate_asset_sd", { prompt, apiKey: nvidiaApiKey });
+          base64Data = await invoke("generate_asset_sd", { prompt, apiKey: nvidiaApiKey, aspectRatio });
         }
       } else {
         if (aiModel === 'gemini') {
@@ -105,7 +106,7 @@ function App() {
           const requestBody = {
             prompt,
             cfg_scale: 5,
-            aspect_ratio: "1:1",
+            aspect_ratio: aspectRatio,
             seed: 0,
             steps: 40,
             negative_prompt: ""
@@ -259,6 +260,28 @@ function App() {
                   </Button>
                 </div>
               </div>
+
+              {aiModel === 'sd35' && (
+                <div className="space-y-2 pt-2">
+                  <label className="text-xs font-display uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-primary"></div>
+                    Resolution / Aspect Ratio
+                  </label>
+                  <select
+                    value={aspectRatio}
+                    onChange={(e) => setAspectRatio(e.target.value)}
+                    className="w-full font-mono text-sm bg-background border border-muted focus:outline-none focus:ring-1 focus:ring-primary rounded-none p-3 text-foreground"
+                  >
+                    <option value="1:1">1:1 (Square, ~1024x1024)</option>
+                    <option value="16:9">16:9 (Widescreen, ~1920x1080)</option>
+                    <option value="9:16">9:16 (Portrait, ~1080x1920)</option>
+                    <option value="5:4">5:4 (Monitor)</option>
+                    <option value="4:5">4:5 (Vertical Print)</option>
+                    <option value="3:2">3:2 (Landscape Photo)</option>
+                    <option value="2:3">2:3 (Portrait Photo)</option>
+                  </select>
+                </div>
+              )}
             </CardContent>
           </Card>
 
